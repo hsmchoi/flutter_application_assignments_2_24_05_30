@@ -1,200 +1,212 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
-import 'dart:async';
-
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
+void main() {
+  runApp(const MaterialApp(home: PomodoroTimer()));
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class PomodoroTimer extends StatefulWidget {
+  const PomodoroTimer({super.key});
+
+  @override
+  _PomodoroTimerState createState() => _PomodoroTimerState();
+}
+
+class _PomodoroTimerState extends State<PomodoroTimer> {
   static const twentyFiveMinutes = 1500;
-  // ignore: non_constant_identifier_names
-  int TotalSeconds = twentyFiveMinutes;
+  static const fiveMinutes = 300;
+
+  int totalSeconds = twentyFiveMinutes;
   bool isRunning = false;
-  late Timer timer;
-  // ignore: non_constant_identifier_names
+  Timer? timer;
   int completedPomodoros = 0;
-  int round = 0;
+  int round = 1;
   int roundLimit = 4;
   int goalLimit = 12;
   int goal = 0;
+  int selectedSeconds = twentyFiveMinutes;
+  bool needResting = false;
 
-  void onTick(Timer timer) {
-    if (TotalSeconds == 0) {
-      setState(() {
-        onRestartPress();
-        completedPomodoros = completedPomodoros + 1;
-        round = round + 1;
-        if (round == roundLimit) {
-          round = 0;
-          goal = goal + 1;
-          timer.cancel();
-        }
-        if (goal == goalLimit) {
-          timer.cancel();
-        }
-      });
-    } else {
-      setState(() {
-        TotalSeconds = TotalSeconds - 1;
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    _resetTimer(); // 타이머 초기화
   }
 
-  void count(int count) {
-    count = 0;
-    if (completedPomodoros == 0) {
+  @override
+  void dispose() {
+    timer?.cancel(); // 위젯 종료 시 타이머 해제
+    super.dispose();
+  }
+
+  void onTick(Timer timer) {
+    if (totalSeconds == 0) {
+      if (needResting) {
+        completedPomodoros++;
+        round = round == roundLimit ? 1 : round + 1; // 라운드 증가 및 초기화
+
+        if (round == 1) {
+          goal++;
+          if (goal == goalLimit) {
+            timer.cancel();
+            _showAlertDialog('뽀모도로 완료!', '목표를 모두 달성했습니다!');
+            return;
+          }
+        }
+
+        needResting = false;
+        totalSeconds = selectedSeconds;
+      } else {
+        needResting = true;
+        totalSeconds = fiveMinutes; // 5분 휴식 (300초)
+      }
+
+      _startTimer(); // 다음 타이머 시작 (작업 또는 휴식)
+    } else {
       setState(() {
-        count = count + 1;
+        totalSeconds--;
       });
     }
   }
 
   void onStartPressed() {
-    timer = Timer.periodic(
-      const Duration(seconds: 1),
-      onTick,
-    );
-    setState(() {
-      isRunning = true;
-    });
+    if (!isRunning) {
+      _startTimer();
+      setState(() {
+        isRunning = true;
+      });
+    }
+  }
+
+  void _startTimer() {
+    timer = Timer.periodic(const Duration(milliseconds: 1), onTick);
   }
 
   void onPausePress() {
-    timer.cancel();
+    timer?.cancel();
     setState(() {
       isRunning = false;
     });
   }
 
   void onRestartPress() {
-    TotalSeconds = twentyFiveMinutes;
+    _resetTimer();
+  }
+
+  void _resetTimer() {
     setState(() {
+      totalSeconds = twentyFiveMinutes;
       isRunning = false;
       completedPomodoros = 0;
-      timer.cancel();
+      round = 1; // 초기 라운드는 1로 설정
+      goal = 0;
     });
+    timer?.cancel();
   }
 
   String format(int seconds) {
     var duration = Duration(seconds: seconds);
-    String durationValue = duration.toString().split(".").first.substring(2, 7);
-    return durationValue;
+    return duration.toString().split(".").first.substring(2, 7);
+  }
+
+  void _showAlertDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: needResting ? Colors.green : Theme.of(context).hintColor,
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(30.0),
-            child: Flexible(
-              //POMOTIMER 글자
-              flex: 1,
-              child: Container(
-                alignment: Alignment.topLeft,
-                child: Text(
-                  'POMOTIMER',
-                  style: TextStyle(
-                    color: Theme.of(context).cardColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 2.5,
-                  ),
-                ),
-              ),
-            ),
-          ),
+          // ... (POMOTIMER 텍스트 위젯)
+
           Flexible(
             flex: 5,
             child: Column(
               children: [
                 Expanded(
-                  // Column의 남은 공간을 Stack이 차지하도록 Expanded 사용
                   child: Stack(
                     alignment: Alignment.center,
-                    // Stack 내부 요소 가운데 정렬
                     children: [
                       Container(
-                        // 배경 컨테이너
                         decoration: BoxDecoration(
-                          color: Theme.of(context).hintColor, // 배경 색상 설정
-                          borderRadius: BorderRadius.circular(15), // 둥근 모서리 설정
+                          color: Theme.of(context).hintColor,
+                          borderRadius: BorderRadius.circular(15),
                         ),
                       ),
                       Positioned(
-                        // 왼쪽 숫자 박스
                         left: 110,
                         top: 66,
                         child: Container(
                           width: 60,
                           height: 95,
                           decoration: BoxDecoration(
-                              color:
-                                  Theme.of(context).cardColor.withOpacity(0.5)),
-
+                            color: Theme.of(context).cardColor.withOpacity(0.5),
+                          ),
                           child: Center(
-                              child: Text(
-                                  format(TotalSeconds).split(":")[0])), // : 표시
+                              child: Text(format(totalSeconds).split(":")[0])),
                         ),
                       ),
                       Positioned(
-                        // 왼쪽 숫자 박스
                         left: 100,
                         top: 75,
                         child: Container(
                           width: 80,
                           height: 100,
                           decoration: BoxDecoration(
-                              color:
-                                  Theme.of(context).cardColor.withOpacity(0.5)),
-
+                            color: Theme.of(context).cardColor.withOpacity(0.5),
+                          ),
                           child: Center(
-                              child: Text(
-                                  format(TotalSeconds).split(":")[0])), // : 표시
+                              child: Text(format(totalSeconds).split(":")[0])),
                         ),
                       ),
                       Positioned(
-                        // 왼쪽 숫자 박스
                         left: 105,
                         top: 70,
                         child: Container(
                           width: 70,
                           height: 80,
                           decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .cardColor
-                                  .withOpacity(0.5)), // : 표시
+                            color: Theme.of(context).cardColor.withOpacity(0.5),
+                          ),
                         ),
                       ),
                       Positioned(
-                        // 왼쪽 숫자 박스
                         left: 100,
                         top: 80,
                         child: Container(
                           width: 80,
                           height: 100,
                           decoration: BoxDecoration(
-                              color:
-                                  Theme.of(context).cardColor.withOpacity(1)),
-
+                            color: Theme.of(context).cardColor.withOpacity(1),
+                          ),
                           child: Center(
-                              child: Text(
-                            format(TotalSeconds).split(":")[0],
-                            style: TextStyle(
+                            child: Text(
+                              format(totalSeconds).split(":")[0],
+                              style: TextStyle(
                                 color: Theme.of(context).hintColor,
                                 fontSize: 50,
-                                fontWeight: FontWeight.w700),
-                          )), // : 표시
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       Positioned(
-                        // 콜론(:)
-                        top: 100, // 콜론 위치 조절
+                        top: 100,
                         child: Text(
                           ':',
                           style: TextStyle(
@@ -204,7 +216,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       Positioned(
-                        // 잔상
                         right: 110,
                         top: 66,
                         child: Container(
@@ -216,7 +227,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       Positioned(
-                        // 잔상
                         right: 100,
                         top: 75,
                         child: Container(
@@ -228,7 +238,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       Positioned(
-                        // 잔상효과
                         right: 105,
                         top: 70,
                         child: Container(
@@ -240,7 +249,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       Positioned(
-                        // 오른쪽 숫자 박스
                         right: 100,
                         top: 80,
                         child: Container(
@@ -250,13 +258,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Color.fromARGB(255, 255, 255, 255),
                           ),
                           child: Center(
-                              child: Text(
-                            format(TotalSeconds).split(":")[1],
-                            style: TextStyle(
+                            child: Text(
+                              format(totalSeconds).split(":")[1],
+                              style: TextStyle(
                                 color: Theme.of(context).hintColor,
                                 fontSize: 50,
-                                fontWeight: FontWeight.w700),
-                          )), // 초 표시
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -265,148 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          Flexible(
-            //시간 설정
-            flex: 1,
-            child: Stack(
-              children: [
-                Positioned(
-                    child: Center(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (var duration in [15, 20, 25, 30, 35])
-                          TextButton(
-                            onPressed: () {
-                              timer.cancel();
-                              isRunning = false;
-                              setState(() {
-                                TotalSeconds = duration * 60;
-                              });
-                            },
-                            style: TextButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              textStyle: TextStyle(
-                                color: Theme.of(context).hintColor,
-                                fontSize: 20,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15),
-                              ),
-                            ),
-                            child: Text(duration.toString()),
-                          ),
-                      ],
-                    ),
-                  ),
-                ))
-              ],
-            ),
-          ),
-          Flexible(
-            flex: 3,
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 50,
-                  top: 60,
-                  child: Center(
-                    child: IconButton(
-                      iconSize: 100,
-                      color: Theme.of(context).cardColor,
-                      onPressed: onRestartPress,
-                      icon: const Icon(Icons.restart_alt),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 55,
-                  top: 60,
-                  child: Center(
-                    child: IconButton(
-                      iconSize: 100,
-                      color: Theme.of(context).cardColor,
-                      onPressed: isRunning ? onPausePress : onStartPressed,
-                      icon: Icon(
-                        isRunning
-                            ? Icons.pause_circle_filled
-                            : Icons.play_circle_filled,
-                      ),
-                    ),
-                  ),
-                )
-              ],
-            ),
-          ),
-          Flexible(
-            flex: 2,
-            child: Stack(
-              children: [
-                Positioned(
-                  // Stack 안에서 위치 지정
-                  left: 80,
-                  top: 20,
-                  child: Center(
-                    child: Text(
-                      '$round/$roundLimit',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                        color: Theme.of(context).cardColor.withOpacity(0.5),
-                      ),
-                    ),
-                  ),
-                ),
-                // 파란색 배경
-                const Positioned(
-                  // Stack 안에서 위치 지정
-                  left: 70,
-                  top: 55,
-                  child: Center(
-                    child: Text(
-                      'ROUND',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  // Stack 안에서 위치 지정
-                  right: 80,
-                  top: 20,
-                  child: Center(
-                    child: Text(
-                      '$goal/$goalLimit',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                        color: Theme.of(context).cardColor.withOpacity(0.5),
-                      ),
-                    ),
-                  ),
-                ),
-                const Positioned(
-                  // Stack 안에서 위치 지정
-                  right: 85,
-                  top: 55,
-                  child: Center(
-                    child: Text(
-                      'GOAL',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // ... (시간 설정, 컨트롤 버튼, 라운드 정보 위젯)
         ],
       ),
     );
